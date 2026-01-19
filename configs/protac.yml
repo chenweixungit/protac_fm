@@ -7,26 +7,59 @@ dataset:
   max_num_atoms: 70
 
 model:
+  # Diffusion steps (same as LinkerNet)
   num_steps: 500
+  
+  # Network dimensions (aligned with LinkerNet node_emb_dim=256, edge_emb_dim=64)
   h_dim: 256
   edge_dim: 64
   cond_dim: 16
   time_emb_dim: 64
+  time_emb_scale: 1000
+  
+  # EGNN architecture (aligned with LinkerNet eps_net.encoder.num_blocks=6)
   n_layers: 6
-  num_heads: 4
+  num_heads: 8
   N_L_max: 50
 
+  # Training targets (same as LinkerNet)
   train_frag_rot: True
   train_frag_pos: True
   train_link: True
   train_bond: True
 
+  # Anchor and bond settings (same as LinkerNet)
   known_anchor: False
   known_linker_bond: False
   rel_geometry: two_pos_and_rot
+  frag_pos_prior: null
+
+  # Diffusion schedules (same as LinkerNet)
+  diffusion:
+    trans_rot_opt:
+      sche_type: cosine
+      s: 0.01
+    trans_pos_opt:
+      sche_type: cosine
+      s: 0.01
+    trans_link_pos_opt:
+      sche_type: cosine
+      s: 0.01
+    trans_link_cls_opt:
+      sche_type: cosine
+      s: 0.01
+    trans_link_bond_opt:
+      sche_type: cosine
+      s: 0.01
 
 train:
+  # Checkpoint to resume from (optional)
+  ckpt_path: null
+  
+  # Random seed (same as LinkerNet)
   seed: 2023
+  
+  # Loss weights (same as LinkerNet)
   loss_weights:
     frag_rot: 1.0
     frag_pos: 1.0
@@ -34,14 +67,17 @@ train:
     link_cls: 100.0
     link_bond: 100.0
 
-  batch_size: 4
-  num_workers: 4
-  max_iters: 200000
+  # Training settings (aligned with LinkerNet)
+  batch_size: 2
+  num_workers: 8
+  n_acc_batch: 1
+  max_iters: 500000
   val_freq: 2000
   sampling_iter: 10000
   pos_noise_std: 0.05
   max_grad_norm: 50.0
   
+  # Optimizer (same as LinkerNet)
   optimizer:
     type: adamw
     lr: 1.e-4
@@ -49,15 +85,21 @@ train:
     beta1: 0.99
     beta2: 0.999
   
+  # Scheduler (same as LinkerNet)
   scheduler:
     type: plateau
     factor: 0.6
     patience: 10
     min_lr: 1.e-6
 
+  # Logging settings
+  train_report_iter: 200
+  save_best: True
+
 sample:
   n_steps: 100
   num_samples: 100
+  save_traj: False
 
 filter:
   MW_min: 600

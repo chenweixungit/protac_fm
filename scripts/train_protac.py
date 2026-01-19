@@ -1,8 +1,12 @@
-"""Training script for PROTAC Flow Matching model."""
+"""Training script for PROTAC Flow Matching model.
+
+Based on LinkerNet training script with same logging and checkpoint structure.
+"""
 import argparse
 import os
 import sys
 import time
+import shutil
 
 import numpy as np
 import torch
@@ -35,8 +39,9 @@ def main():
     parser.add_argument('config', type=str, default='./configs/protac.yml')
     parser.add_argument('--device', type=str, default='cuda')
     parser.add_argument('--logdir', type=str, default='./logs')
-    parser.add_argument('--train_report_iter', type=int, default=200)
-    parser.add_argument('--sampling_iter', type=int, default=10000)
+    parser.add_argument('--train_report_iter', type=int, default=None)
+    parser.add_argument('--sampling_iter', type=int, default=None)
+    parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint to resume from')
     args = parser.parse_args()
     
     RDLogger.DisableLog('rdApp.*')
@@ -46,6 +51,17 @@ def main():
     seed_all(config.train.seed)
     logger, writer, log_dir, ckpt_dir, vis_dir = setup_logdir(args.config, args.logdir)
     logger.info(args)
+    logger.info(f'Config: {args.config}')
+    logger.info(f'Log directory: {log_dir}')
+    logger.info(f'Checkpoint directory: {ckpt_dir}')
+    logger.info(f'Visualization directory: {vis_dir}')
+    
+    # Copy config to log directory
+    shutil.copy(args.config, os.path.join(log_dir, 'config.yml'))
+    
+    # Get training report and sampling intervals from config or args
+    train_report_iter = args.train_report_iter or config.train.get('train_report_iter', 200)
+    sampling_iter = args.sampling_iter or config.train.get('sampling_iter', 10000)
     
     # Transforms
     cfg_model = config.model
@@ -145,7 +161,7 @@ def main():
         )
         optimizer.step()
         
-        log_losses(loss_dict, it, 'train', args.train_report_iter, logger, writer, others={
+        log_losses(loss_dict, it, 'train', train_report_iter, logger, writer, others={
             'grad': orig_grad_norm,
             'lr': optimizer.param_groups[0]['lr']
         })
@@ -188,17 +204,43 @@ def main():
         avg_loss = loss_tape.log(it, logger, writer, 'test')
         return avg_loss
     
+    # Resume from checkpoint if specified
+    start_iter = 1
+    best_loss, best_iter = None, None
+    
+    if args.resume:
+        logger.info(f'Resuming from checkpoint: {args.resume}')
+        ckpt = torch.load(args.resume, map_location=args.device)
+        model.load_state_dict(ckpt['model'])
+        optimizer.load_state_dict(ckpt['optimizer'])
+        if ckpt.get('scheduler') and scheduler:
+            scheduler.load_state_dict(ckpt['scheduler'])
+        start_iter = ckpt.get('iteration', 0) + 1
+        best_loss = ckpt.get('best_loss', None)
+        best_iter = ckpt.get('best_iter', None)
+        logger.info(f'Resumed from iteration {start_iter - 1}')
+    
     # Training loop
+    logger.info('='*60)
+    logger.info('Starting training...')
+    logger.info(f'Max iterations: {config.train.max_iters}')
+    logger.info(f'Batch size: {config.train.batch_size}')
+    logger.info(f'Validation frequency: {config.train.val_freq}')
+    logger.info(f'Sampling frequency: {sampling_iter}')
+    logger.info('='*60)
+    
     try:
         model.train()
-        best_loss, best_iter = None, None
         
-        for it in range(1, config.train.max_iters + 1):
+        for it in range(start_iter, config.train.max_iters + 1):
+            t_start = time.time()
             batch = next(train_iterator)
+            t_data = time.time() - t_start
+            
             train(it, batch)
             
             # Sampling
-            if it % args.sampling_iter == 0:
+            if it % sampling_iter == 0:
                 try:
                     data = test_set[0]
                     data_list = [data.clone() for _ in range(100)]
@@ -242,14 +284,19 @@ def main():
             if it % config.train.val_freq == 0 or it == config.train.max_iters:
                 val_loss = validate(it)
                 
+                # Save checkpoint
                 ckpt_path = os.path.join(ckpt_dir, f'{it}.pt')
-                torch.save({
+                ckpt_data = {
                     'config': config,
                     'model': model.state_dict(),
                     'optimizer': optimizer.state_dict(),
                     'scheduler': scheduler.state_dict() if scheduler else None,
                     'iteration': it,
-                }, ckpt_path)
+                    'best_loss': best_loss,
+                    'best_iter': best_iter,
+                }
+                torch.save(ckpt_data, ckpt_path)
+                logger.info(f'Saved checkpoint to {ckpt_path}')
                 
                 if best_loss is None or val_loss < best_loss:
                     logger.info(f'[Validate] Best val loss achieved: {val_loss:.6f}')
@@ -257,22 +304,49 @@ def main():
                     
                     # Save best model
                     best_path = os.path.join(ckpt_dir, 'best.pt')
-                    torch.save({
-                        'config': config,
-                        'model': model.state_dict(),
-                        'optimizer': optimizer.state_dict(),
-                        'scheduler': scheduler.state_dict() if scheduler else None,
-                        'iteration': it,
-                    }, best_path)
+                    ckpt_data['best_loss'] = best_loss
+                    ckpt_data['best_iter'] = best_iter
+                    torch.save(ckpt_data, best_path)
+                    logger.info(f'Saved best model to {best_path}')
                     
+                    # Run test on best model
                     test(it)
+                else:
+                    logger.info(f'[Validate] Current: {val_loss:.6f}, Best: {best_loss:.6f} at iter {best_iter}')
                 
                 model.train()
     
     except KeyboardInterrupt:
         logger.info('Training interrupted by user')
+        # Save interrupt checkpoint
+        interrupt_path = os.path.join(ckpt_dir, 'interrupt.pt')
+        torch.save({
+            'config': config,
+            'model': model.state_dict(),
+            'optimizer': optimizer.state_dict(),
+            'scheduler': scheduler.state_dict() if scheduler else None,
+            'iteration': it,
+            'best_loss': best_loss,
+            'best_iter': best_iter,
+        }, interrupt_path)
+        logger.info(f'Saved interrupt checkpoint to {interrupt_path}')
     
-    logger.info(f'Training completed. Best iteration: {best_iter}, Best loss: {best_loss:.6f}')
+    except Exception as e:
+        logger.error(f'Training failed with error: {e}')
+        import traceback
+        logger.error(traceback.format_exc())
+        raise
+    
+    # Final summary
+    logger.info('='*60)
+    logger.info('TRAINING COMPLETED')
+    logger.info('='*60)
+    if best_loss is not None:
+        logger.info(f'Best iteration: {best_iter}')
+        logger.info(f'Best validation loss: {best_loss:.6f}')
+    logger.info(f'Checkpoints saved to: {ckpt_dir}')
+    logger.info(f'Logs saved to: {log_dir}')
+    logger.info('='*60)
     writer.close()
 
 
