@@ -1,0 +1,72 @@
+dataset:
+  name: protac
+  path: ./data/protac
+  version: v1
+  split_mode: warhead  # [warhead, ligase, random]
+  index_name: 3d_index.pkl
+  max_num_atoms: 70
+
+model:
+  num_steps: 500
+  h_dim: 256
+  edge_dim: 64
+  cond_dim: 16
+  time_emb_dim: 64
+  n_layers: 6
+  num_heads: 4
+  N_L_max: 50
+
+  train_frag_rot: True
+  train_frag_pos: True
+  train_link: True
+  train_bond: True
+
+  known_anchor: False
+  known_linker_bond: False
+  rel_geometry: two_pos_and_rot
+
+train:
+  seed: 2023
+  loss_weights:
+    frag_rot: 1.0
+    frag_pos: 1.0
+    link_pos: 1.0
+    link_cls: 100.0
+    link_bond: 100.0
+
+  batch_size: 4
+  num_workers: 4
+  max_iters: 200000
+  val_freq: 2000
+  sampling_iter: 10000
+  pos_noise_std: 0.05
+  max_grad_norm: 50.0
+  
+  optimizer:
+    type: adamw
+    lr: 1.e-4
+    weight_decay: 1.e-8
+    beta1: 0.99
+    beta2: 0.999
+  
+  scheduler:
+    type: plateau
+    factor: 0.6
+    patience: 10
+    min_lr: 1.e-6
+
+sample:
+  n_steps: 100
+  num_samples: 100
+
+filter:
+  MW_min: 600
+  MW_max: 1200
+  logP_max: 6.0
+  TPSA_max: 180
+  HBD_max: 4
+  HBA_max: 12
+  RotB_min: 6
+  RotB_max: 20
+  QED_min: 0.2
+  SA_max: 6.0

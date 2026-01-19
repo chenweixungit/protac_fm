@@ -1,0 +1,51 @@
+data:
+  N_L_max: 32
+  atom_vocab: ["MASK", "C", "N", "O", "S", "F", "Cl", "Br", "I", "P"]
+  bond_vocab: ["NONE", "SINGLE", "DOUBLE", "AROMATIC"]
+  dataset_path: "./data/protacdb_raw"
+  processed_path: "./data/processed"
+  max_num_atoms: 30
+
+model:
+  h_dim: 256
+  n_layers: 6
+  edge_dim: 8
+  cond_dim: 16
+  time_emb_dim: 64
+  num_heads: 4
+
+train:
+  lr: 1e-4
+  batch_size: 16
+  max_steps: 200000
+  val_freq: 2000
+  seed: 42
+  num_workers: 4
+  max_grad_norm: 10.0
+  
+  # Loss weights
+  w_coord: 1.0
+  w_pose: 0.5
+  w_atom: 1.0
+  w_bond: 1.0
+  w_geom: 0.1
+  
+  # Mask schedule
+  mask_schedule: "linear"  # p = t
+
+sample:
+  n_steps: 80
+  dt: 0.0125
+  max_resample_bond: 10
+
+filter:
+  MW_min: 600
+  MW_max: 1200
+  logP_max: 6.0
+  TPSA_max: 180
+  HBD_max: 4
+  HBA_max: 12
+  RotB_min: 6
+  RotB_max: 20
+  QED_min: 0.2
+  SA_max: 6.0
