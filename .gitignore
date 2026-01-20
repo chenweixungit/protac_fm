@@ -138,6 +138,6 @@ ckpts
 output*
 logs/
 script_slurm/
-data/
+/data/
 方案.pdf
 结构.md
