@@ -12,12 +12,16 @@ Usage:
 import argparse
 import csv
 import os
+import sys
 from glob import glob
 
 import numpy as np
 import torch
 from rdkit import RDLogger
 from tqdm.auto import tqdm
+
+# Add parent directory to path
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from protac_fm.utils.reconstruct import eval_success_rate
 
