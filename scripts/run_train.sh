@@ -16,13 +16,10 @@ echo "============================================================"
 echo "PROTAC Flow Matching - Training"
 echo "============================================================"
 echo "Config: configs/training/fm_protac.yml"
-echo "Log directory: ./logs"
+echo "Log directory: ./logs (auto-created)"
 echo "============================================================"
 
-# Create logs directory if not exists
-mkdir -p ./logs
-
-# Run training
+# Run training (logs directory is auto-created like LinkerNet)
 python scripts/train_fm_protac.py configs/training/fm_protac.yml --device cuda --logdir ./logs
 
 echo "Training completed!"

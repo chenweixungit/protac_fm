@@ -49,6 +49,8 @@ def main():
     # Load configs
     config = load_config(args.config)
     seed_all(config.train.seed)
+    
+    # Setup log directory (auto-creates logs folder like LinkerNet)
     logger, writer, log_dir, ckpt_dir, vis_dir = setup_logdir(args.config, args.logdir)
     logger.info(args)
     logger.info(f'Config: {args.config}')

@@ -29,11 +29,18 @@ def seed_all(seed: int = 42):
 
 
 def setup_logdir(config_path: str, logdir: str):
-    """Setup logging directory and logger."""
+    """Setup logging directory and logger.
+    
+    Automatically creates logs directory if it doesn't exist (like LinkerNet).
+    """
+    # Ensure root logdir exists (auto-create like LinkerNet)
+    os.makedirs(logdir, exist_ok=True)
+    
     config_name = os.path.basename(config_path).replace('.yml', '').replace('.yaml', '')
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    timestamp = datetime.now().strftime('%Y_%m_%d__%H_%M_%S')
     log_dir = os.path.join(logdir, f'{config_name}_{timestamp}')
     
+    # Create log directory and subdirectories
     os.makedirs(log_dir, exist_ok=True)
     ckpt_dir = os.path.join(log_dir, 'checkpoints')
     os.makedirs(ckpt_dir, exist_ok=True)

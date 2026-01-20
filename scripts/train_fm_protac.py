@@ -51,12 +51,8 @@ def main():
     config = load_config(args.config)
     seed_all(config.train.seed)
     
-    # Setup log directory - ensure it exists
-    logdir = os.path.abspath(args.logdir)
-    print(f'Creating log directory: {logdir}')
-    os.makedirs(logdir, exist_ok=True)
-    
-    logger, writer, log_dir, ckpt_dir, vis_dir = setup_logdir(args.config, logdir)
+    # Setup log directory (auto-creates logs folder like LinkerNet)
+    logger, writer, log_dir, ckpt_dir, vis_dir = setup_logdir(args.config, args.logdir)
     logger.info(args)
     logger.info(f'Config: {args.config}')
     logger.info(f'Log directory: {log_dir}')
