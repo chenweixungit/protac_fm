@@ -14,6 +14,7 @@ import csv
 import os
 import sys
 from glob import glob
+from typing import Optional
 
 import numpy as np
 import torch
@@ -26,7 +27,7 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from protac_fm.utils.reconstruct import eval_success_rate
 
 
-def _load_results(sample_path: str, num_eval: int | None):
+def _load_results(sample_path: str, num_eval: Optional[int]):
     if sample_path.endswith(".pt"):
         return [torch.load(sample_path)], [sample_path]
 
