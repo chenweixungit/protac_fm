@@ -15,6 +15,7 @@ Usage:
 import argparse
 import os
 import sys
+import time
 
 import numpy as np
 import torch
@@ -115,10 +116,20 @@ def main():
 
     n_steps = args.n_steps or config.sample.get("n_steps", 100)
 
+    logger.info(
+        f"Start sampling subset={args.subset} range=[{args.start_id},{args.end_id}) "
+        f"num_samples={args.num_samples} n_steps={n_steps} device={args.device}"
+    )
+
     for idx in tqdm(range(args.start_id, args.end_id)):
+        t0 = time.time()
         raw_data = test_set[idx]
+
+        t1 = time.time()
         data_list = [raw_data.clone() for _ in range(args.num_samples)]
         new_data_list = [init_transform(d) for d in data_list]
+
+        t2 = time.time()
 
         batch = Batch.from_data_list(
             new_data_list,
@@ -126,11 +137,15 @@ def main():
             exclude_keys=COLLATE_EXCLUDE_KEYS,
         ).to(args.device)
 
+        t3 = time.time()
+
         with torch.no_grad():
             results = model.sample(batch, n_steps=n_steps)
             final_x = results["x_final"]
             final_c = results["atom_type_final"]
             final_bond = results["bond_type_final"]
+
+        t4 = time.time()
 
         gen_mols = parse_sampling_result_with_bond(
             new_data_list,
@@ -141,6 +156,8 @@ def main():
             known_linker_bonds=cfg_model.known_linker_bond,
             check_validity=True,
         )
+
+        t5 = time.time()
 
         save_path = os.path.join(log_dir, f"sampling_{idx:06d}.pt")
         save_dict = {
@@ -155,6 +172,13 @@ def main():
             save_dict["traj"] = results["traj"]
 
         torch.save(save_dict, save_path)
+
+        t6 = time.time()
+        logger.info(
+            f"idx={idx} time(s): load={t1 - t0:.3f} "
+            f"transform={t2 - t1:.3f} batch={t3 - t2:.3f} "
+            f"sample={t4 - t3:.3f} reconstruct={t5 - t4:.3f} save={t6 - t5:.3f}"
+        )
 
     logger.info("Sample done!")
 
