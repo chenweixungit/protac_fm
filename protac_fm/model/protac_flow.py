@@ -261,9 +261,50 @@ class ProTACFlowModel(nn.Module):
         bond_logits = outputs['bond_logits']
         linker_bond_mask = batch.linker_bond_mask
         if linker_bond_mask.sum() > 0:
-            losses['link_bond'] = F.cross_entropy(bond_logits[linker_bond_mask], edge_type[linker_bond_mask])
+            bond_logits_masked = bond_logits[linker_bond_mask]
+            bond_target = edge_type[linker_bond_mask]
+
+            class_counts = torch.bincount(bond_target, minlength=self.num_bond_types).float()
+            inv = class_counts.sum() / (class_counts + 1e-6)
+            inv = inv / inv.mean().clamp_min(1e-6)
+            inv = inv.clamp(min=0.1, max=20.0)
+            losses['link_bond'] = F.cross_entropy(bond_logits_masked, bond_target, weight=inv)
+
+            with torch.no_grad():
+                pred_bond = bond_logits_masked.argmax(dim=-1)
+                src, dst = edge_index
+                cross_edge = ((fragment_mask[src] == 0) & (fragment_mask[dst] > 0)) | ((fragment_mask[dst] == 0) & (fragment_mask[src] > 0))
+                cross_edge_masked = cross_edge[linker_bond_mask]
+
+                cross_gt_pos = (bond_target > 0) & cross_edge_masked
+                if cross_gt_pos.any():
+                    cross_pred_pos = (pred_bond > 0) & cross_edge_masked
+                    losses['cross_bond_hit'] = (cross_pred_pos[cross_gt_pos].float().mean())
+
+                    frag1_touch = ((fragment_mask[src] == 1) | (fragment_mask[dst] == 1))
+                    frag2_touch = ((fragment_mask[src] == 2) | (fragment_mask[dst] == 2))
+                    frag1_touch_m = frag1_touch[linker_bond_mask] & cross_edge_masked
+                    frag2_touch_m = frag2_touch[linker_bond_mask] & cross_edge_masked
+
+                    gt_f1 = cross_gt_pos & frag1_touch_m
+                    gt_f2 = cross_gt_pos & frag2_touch_m
+                    if gt_f1.any():
+                        losses['cross_bond_hit_f1'] = (cross_pred_pos[gt_f1].float().mean())
+                    else:
+                        losses['cross_bond_hit_f1'] = torch.tensor(0.0, device=device)
+                    if gt_f2.any():
+                        losses['cross_bond_hit_f2'] = (cross_pred_pos[gt_f2].float().mean())
+                    else:
+                        losses['cross_bond_hit_f2'] = torch.tensor(0.0, device=device)
+                else:
+                    losses['cross_bond_hit'] = torch.tensor(0.0, device=device)
+                    losses['cross_bond_hit_f1'] = torch.tensor(0.0, device=device)
+                    losses['cross_bond_hit_f2'] = torch.tensor(0.0, device=device)
         else:
             losses['link_bond'] = torch.tensor(0.0, device=device)
+            losses['cross_bond_hit'] = torch.tensor(0.0, device=device)
+            losses['cross_bond_hit_f1'] = torch.tensor(0.0, device=device)
+            losses['cross_bond_hit_f2'] = torch.tensor(0.0, device=device)
         
         # Fragment pose losses
         frag1_mask = (fragment_mask == 1)
