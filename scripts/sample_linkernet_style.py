@@ -50,6 +50,8 @@ def main():
     parser.add_argument("--tag", type=str, default="")
     parser.add_argument("--save_traj", type=eval, default=False)
     parser.add_argument("--n_steps", type=int, default=None)
+    parser.add_argument("--skip_reconstruct", type=eval, default=False)
+    parser.add_argument("--check_validity", type=eval, default=True)
     args = parser.parse_args()
 
     RDLogger.DisableLog("rdApp.*")
@@ -147,15 +149,18 @@ def main():
 
         t4 = time.time()
 
-        gen_mols = parse_sampling_result_with_bond(
-            new_data_list,
-            final_x,
-            final_c,
-            final_bond,
-            atom_featurizer,
-            known_linker_bonds=cfg_model.known_linker_bond,
-            check_validity=True,
-        )
+        if args.skip_reconstruct:
+            gen_mols = []
+        else:
+            gen_mols = parse_sampling_result_with_bond(
+                new_data_list,
+                final_x,
+                final_c,
+                final_bond,
+                atom_featurizer,
+                known_linker_bonds=cfg_model.known_linker_bond,
+                check_validity=args.check_validity,
+            )
 
         t5 = time.time()
 
