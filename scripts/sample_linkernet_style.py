@@ -54,7 +54,13 @@ def main():
     RDLogger.DisableLog("rdApp.*")
 
     config = load_config(args.config)
-    seed_all(config.sample.seed if "sample" in config else config.train.seed)
+    if "sample" in config and hasattr(config.sample, "seed") and config.sample.seed is not None:
+        seed = config.sample.seed
+    elif "train" in config and hasattr(config.train, "seed") and config.train.seed is not None:
+        seed = config.train.seed
+    else:
+        seed = 2023
+    seed_all(seed)
 
     logger, writer, log_dir, ckpt_dir, vis_dir = setup_logdir(
         args.config, args.outdir
@@ -102,7 +108,7 @@ def main():
     model.eval()
 
     FOLLOW_BATCH = ["edge_type"]
-    COLLATE_EXCLUDE_KEYS = ["nbh_list"]
+    COLLATE_EXCLUDE_KEYS = ["nbh_list", "rdmol", "mol", "frag_mol", "link_mol"]
 
     if args.end_id == -1:
         args.end_id = len(test_set)
