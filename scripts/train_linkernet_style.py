@@ -155,15 +155,10 @@ def main():
 
     if args.resume:
         logger.info(f"Resuming from checkpoint: {args.resume}")
-        ckpt = torch.load(args.resume, map_location="cpu")
+        ckpt = torch.load(args.resume, map_location=args.device)
         model.load_state_dict(ckpt["model"])
         if "optimizer" in ckpt and ckpt["optimizer"] is not None:
             optimizer.load_state_dict(ckpt["optimizer"])
-            # Move optimizer state to the target device to match model params
-            for state in optimizer.state.values():
-                for k, v in state.items():
-                    if torch.is_tensor(v):
-                        state[k] = v.to(args.device)
         if scheduler is not None and ckpt.get("scheduler") is not None:
             scheduler.load_state_dict(ckpt["scheduler"])
         start_iter = int(ckpt.get("iteration", 0)) + 1
