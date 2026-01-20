@@ -36,7 +36,7 @@ class FragLinkerData(Data):
     def clone(self):
         """Create a copy of this data object."""
         new_data = FragLinkerData()
-        for key in self.keys():
+        for key in self.keys:
             value = self[key]
             if isinstance(value, torch.Tensor):
                 setattr(new_data, key, value.clone())
