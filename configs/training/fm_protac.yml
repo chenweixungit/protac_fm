@@ -69,7 +69,7 @@ train:
 
   # Training settings (aligned with LinkerNet)
   batch_size: 2
-  num_workers: 8
+  num_workers: 0
   n_acc_batch: 1
   max_iters: 500000
   val_freq: 2000
