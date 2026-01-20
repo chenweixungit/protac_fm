@@ -104,7 +104,7 @@ def main():
     logger.info(f"Training: {len(train_set)} Validation: {len(val_set)} Test: {len(test_set)}")
 
     FOLLOW_BATCH = ["edge_type"]
-    COLLATE_EXCLUDE_KEYS = ["nbh_list"]
+    COLLATE_EXCLUDE_KEYS = ["nbh_list", "rdmol", "mol", "frag_mol", "link_mol"]
 
     train_iterator = inf_iterator(
         DataLoader(
