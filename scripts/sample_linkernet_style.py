@@ -37,6 +37,21 @@ from protac_fm.utils.reconstruct import eval_success_rate, parse_sampling_result
 torch.multiprocessing.set_sharing_strategy("file_system")
 
 
+def _strip_rdkit_objs(data):
+    for k in ["rdmol", "mol", "frag_mol", "link_mol"]:
+        try:
+            if hasattr(data, k):
+                delattr(data, k)
+        except Exception:
+            pass
+        try:
+            if k in data:
+                data.pop(k)
+        except Exception:
+            pass
+    return data
+
+
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument("config", type=str)
@@ -52,6 +67,7 @@ def main():
     parser.add_argument("--n_steps", type=int, default=None)
     parser.add_argument("--skip_reconstruct", type=eval, default=False)
     parser.add_argument("--check_validity", type=eval, default=True)
+    parser.add_argument("--save_rdkit", type=eval, default=True)
     args = parser.parse_args()
 
     RDLogger.DisableLog("rdApp.*")
@@ -165,9 +181,16 @@ def main():
         t5 = time.time()
 
         save_path = os.path.join(log_dir, f"sampling_{idx:06d}.pt")
+        ref_data = init_transform(raw_data.clone())
+        data_list_to_save = [d.clone() for d in new_data_list]
+        if not args.save_rdkit:
+            _strip_rdkit_objs(ref_data)
+            for d in data_list_to_save:
+                _strip_rdkit_objs(d)
+
         save_dict = {
-            "ref_data": init_transform(raw_data),
-            "data_list": new_data_list,
+            "ref_data": ref_data,
+            "data_list": data_list_to_save,
             "final_x": final_x,
             "final_c": final_c,
             "final_bond": final_bond,

@@ -65,9 +65,9 @@ def _analyze_hit_rates(result_dict):
     final_bond = result_dict["final_bond"]
 
     if isinstance(final_bond, list):
-        fb = torch.stack([_as_tensor(x).long() for x in final_bond], dim=0)
+        fb = torch.stack([_as_tensor(x).long().to("cpu") for x in final_bond], dim=0)
     else:
-        fb = _as_tensor(final_bond).long()
+        fb = _as_tensor(final_bond).long().to("cpu")
         if fb.dim() == 1:
             fb = fb.unsqueeze(0)
 
@@ -81,8 +81,8 @@ def _analyze_hit_rates(result_dict):
 
     for i in range(S):
         d = data_list[i]
-        edge_index = _as_tensor(d.edge_index).long()
-        fragment_mask = _as_tensor(d.fragment_mask).long()
+        edge_index = _as_tensor(d.edge_index).long().to("cpu")
+        fragment_mask = _as_tensor(d.fragment_mask).long().to("cpu")
         linker_mask = (fragment_mask == 0)
 
         src = edge_index[0]
