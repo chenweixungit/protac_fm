@@ -67,6 +67,9 @@ def main():
     parser.add_argument("--n_steps", type=int, default=None)
     parser.add_argument("--skip_reconstruct", type=eval, default=False)
     parser.add_argument("--check_validity", type=eval, default=True)
+    parser.add_argument("--prune_cross_bonds", type=eval, default=False)
+    parser.add_argument("--max_cross_per_frag", type=int, default=1)
+    parser.add_argument("--max_total_cross", type=int, default=2)
     parser.add_argument("--save_rdkit", type=eval, default=True)
     args = parser.parse_args()
 
@@ -176,6 +179,9 @@ def main():
                 atom_featurizer,
                 known_linker_bonds=cfg_model.known_linker_bond,
                 check_validity=args.check_validity,
+                prune_cross_bonds=args.prune_cross_bonds,
+                max_cross_per_frag=args.max_cross_per_frag,
+                max_total_cross=args.max_total_cross,
             )
 
         t5 = time.time()

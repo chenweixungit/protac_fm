@@ -316,18 +316,71 @@ def fix_aromatic(mol, strict=False, linker_atom_idx=None):
 
 
 def parse_sampling_result_with_bond(data_list, final_x, final_c, final_bond, atom_featurizer,
-                                    known_linker_bonds=True, check_validity=False):
+                                    known_linker_bonds=True, check_validity=False,
+                                    prune_cross_bonds: bool = False,
+                                    max_cross_per_frag: int = 1,
+                                    max_total_cross: Optional[int] = 2):
     """Parse sampling results to molecules."""
     all_mols = []
     if not isinstance(data_list, list):
         data_list = [data_list] * len(final_x)
     
     for data, x_gen, c_gen, b_gen in zip(data_list, final_x, final_c, final_bond):
+        x_gen_t = x_gen.detach() if torch.is_tensor(x_gen) else torch.as_tensor(x_gen)
         frag_pos = x_gen[data.fragment_mask > 0].cpu().numpy().astype(np.float64)
         linker_pos = x_gen[data.fragment_mask == 0].cpu().numpy().astype(np.float64)
         linker_ele = [atom_featurizer.get_element_from_index(int(c)) for c in c_gen[data.linker_mask]]
         linker_bond_type = b_gen[data.linker_bond_mask]
         linker_bond_index = data.edge_index[:, data.linker_bond_mask]
+
+        if prune_cross_bonds:
+            frag_mask = data.fragment_mask
+            src = linker_bond_index[0]
+            dst = linker_bond_index[1]
+
+            frag_mask_t = frag_mask.detach() if torch.is_tensor(frag_mask) else torch.as_tensor(frag_mask)
+            src_t = src.detach() if torch.is_tensor(src) else torch.as_tensor(src)
+            dst_t = dst.detach() if torch.is_tensor(dst) else torch.as_tensor(dst)
+            bt_t = linker_bond_type.detach() if torch.is_tensor(linker_bond_type) else torch.as_tensor(linker_bond_type)
+
+            x_cpu = x_gen_t.to("cpu")
+            src_cpu = src_t.to("cpu").long()
+            dst_cpu = dst_t.to("cpu").long()
+            frag_cpu = frag_mask_t.to("cpu").long()
+            bt_cpu = bt_t.to("cpu").long().clone()
+
+            is_linker = frag_cpu == 0
+            cross = (is_linker[src_cpu] & (frag_cpu[dst_cpu] > 0)) | (is_linker[dst_cpu] & (frag_cpu[src_cpu] > 0))
+            active = (bt_cpu > 0) & cross
+
+            if active.any():
+                dist = (x_cpu[src_cpu] - x_cpu[dst_cpu]).pow(2).sum(dim=-1)
+
+                keep = torch.zeros_like(active, dtype=torch.bool)
+                for frag_id in (1, 2):
+                    sel = active & ((frag_cpu[src_cpu] == frag_id) | (frag_cpu[dst_cpu] == frag_id))
+                    if not sel.any():
+                        continue
+                    idx = sel.nonzero(as_tuple=True)[0]
+                    k = int(max_cross_per_frag) if max_cross_per_frag is not None else 0
+                    if k <= 0:
+                        continue
+                    order = torch.argsort(dist[idx])
+                    idx = idx[order[:k]]
+                    keep[idx] = True
+
+                if max_total_cross is not None:
+                    max_total = int(max_total_cross)
+                    keep_idx = (keep & active).nonzero(as_tuple=True)[0]
+                    if keep_idx.numel() > max_total:
+                        order = torch.argsort(dist[keep_idx])
+                        keep_idx = keep_idx[order[:max_total]]
+                        keep = torch.zeros_like(active, dtype=torch.bool)
+                        keep[keep_idx] = True
+
+                bt_cpu[active & (~keep)] = 0
+
+            linker_bond_type = bt_cpu.to(linker_bond_type.device) if torch.is_tensor(linker_bond_type) else bt_cpu
         
         full_mol = reconstruct_mol_with_bond(
             data.frag_mol, frag_pos, linker_pos, linker_ele,
