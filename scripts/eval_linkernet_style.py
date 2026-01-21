@@ -190,32 +190,28 @@ def main():
         for row in per_item:
             writer.writerow(row)
 
-        writer.writerow(
-            {
-                "file": "__MEAN__",
-                "num": "",
-                "recon_rate": float(np.mean(recon_rates)),
-                "complete_rate": float(np.mean(complete_rates)),
-                "recon_count": "",
-                "complete_count": "",
-                "hit_f1_rate": "" if args.analyze_connectivity else None,
-                "hit_f2_rate": "" if args.analyze_connectivity else None,
-                "hit_both_rate": "" if args.analyze_connectivity else None,
-            }
-        )
-        writer.writerow(
-            {
-                "file": "__MEDIAN__",
-                "num": "",
-                "recon_rate": float(np.median(recon_rates)),
-                "complete_rate": float(np.median(complete_rates)),
-                "recon_count": "",
-                "complete_count": "",
-                "hit_f1_rate": "" if args.analyze_connectivity else None,
-                "hit_f2_rate": "" if args.analyze_connectivity else None,
-                "hit_both_rate": "" if args.analyze_connectivity else None,
-            }
-        )
+        mean_row = {
+            "file": "__MEAN__",
+            "num": "",
+            "recon_rate": float(np.mean(recon_rates)),
+            "complete_rate": float(np.mean(complete_rates)),
+            "recon_count": "",
+            "complete_count": "",
+        }
+        median_row = {
+            "file": "__MEDIAN__",
+            "num": "",
+            "recon_rate": float(np.median(recon_rates)),
+            "complete_rate": float(np.median(complete_rates)),
+            "recon_count": "",
+            "complete_count": "",
+        }
+        if args.analyze_connectivity:
+            mean_row.update({"hit_f1_rate": "", "hit_f2_rate": "", "hit_both_rate": ""})
+            median_row.update({"hit_f1_rate": "", "hit_f2_rate": "", "hit_both_rate": ""})
+
+        writer.writerow(mean_row)
+        writer.writerow(median_row)
 
     print(f"Saved summary to {out_csv}")
 
