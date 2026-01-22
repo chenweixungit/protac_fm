@@ -6,6 +6,7 @@ from scipy.spatial.distance import cdist
 from copy import deepcopy
 import re
 import itertools
+from typing import Optional
 
 
 # Bond length constants (in pm / 100 = Angstrom)
